@@ -55,6 +55,7 @@ MySQL 8.0、SQL、Python（导入）、DataGrip、Git
 
 ```
 dw_olist_sql/
+├── 00_run_all.bat      一键跑通，按顺序执行下面五个 SQL
 ├── 01_ods.sql          九张 ODS 建表与导入
 ├── 02_dwd.sql          五张维度表 + 一张事实表
 ├── 02_dwd_desgin.txt   DWD 设计说明
@@ -69,9 +70,17 @@ dw_olist_sql/
 
 ## 怎么跑
 
+### 一键跑通
+
+把 `00_run_all.bat` 里的 `PASSWORD` 改成自己的 MySQL root 密码，双击运行。脚本按 ODS → DWD → DWS → ADS → 质量 的顺序执行五步，最后打印质检结果。
+
+前提：9 个 CSV 放在 `../olist/` 目录下。`01_ods.sql` 里用的是 `load data local infile` 加绝对路径，换机器要先改路径。
+
+### 手动执行
+
 按顺序执行：
 
-1. `01_ods.sql` — 建 ODS 表并导入 CSV（需先把 9 个 CSV 放到 MySQL 允许的导入目录）
+1. `01_ods.sql` — 建 ODS 表并导入 CSV
 2. `02_dwd.sql` — 建维度表和事实表，跑清洗
 3. `03_dws.sql` — 生成三张主题汇总
 4. `04_ads.sql` — 生成漏斗和复购
