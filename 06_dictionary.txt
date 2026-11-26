@@ -1,0 +1,239 @@
+Olist 电商数仓 数据字典
+项目：dw_olist
+生成日期：2026-11-23
+说明：本文件按层列出每张表的字段、类型、含义与数据来源。
+
+
+========================================================
+ODS 层 操作型数据存储 原样落库 九张 共 1,550,921 行
+统一约定：全部 varchar(255)，不加约束，空值为空字符串，不做任何清洗
+========================================================
+
+1. ods_orders  订单表  99441 行
+   来源 olist_orders_dataset.csv
+   order_id                        varchar  订单编号，32位十六进制
+   customer_id                     varchar  买家编号，指向买家表
+   order_status                    varchar  订单状态，八种取值
+   order_purchase_timestamp        varchar  下单时间
+   order_approved_at               varchar  付款确认时间，未付款为空串
+   order_delivered_carrier_date    varchar  交给承运商时间，未发货为空串
+   order_delivered_customer_date   varchar  买家签收时间，未签收为空串
+   order_estimated_delivery_date   varchar  下单时承诺的送达日期
+
+2. ods_items  订单商品行表  112650 行
+   来源 olist_order_items_dataset.csv
+   order_id             varchar  订单编号
+   order_item_id        varchar  本单内第几件商品，从1开始
+   product_id           varchar  商品编号
+   seller_id            varchar  卖家编号
+   shipping_limit_date  varchar  卖家发货截止时间
+   price                varchar  商品金额
+   freight_value        varchar  运费
+
+3. ods_payments  支付表  103886 行
+   来源 olist_order_payments_dataset.csv
+   order_id              varchar  订单编号
+   payment_sequential    varchar  本单第几笔支付
+   payment_type          varchar  支付方式：信用卡 银行票据 代金券 借记卡 未定义
+   payment_installments  varchar  分期数
+   payment_value         varchar  本笔支付金额
+
+4. ods_reviews  评价表  99223 行
+   来源 olist_order_reviews_dataset.csv
+   注：源文件 99224 行，因正文含未转义双引号，解析失败 1 行
+   review_id                varchar  评价编号
+   order_id                 varchar  订单编号
+   review_score             varchar  评分，1到5
+   review_comment_title     varchar  评价标题，用户手写
+   review_comment_message   varchar  评价正文，用户手写，可能含换行与表情
+   review_creation_date     varchar  评价创建日期
+   review_answer_timestamp  varchar  答复时间
+
+5. ods_customers  买家表  99441 行
+   来源 olist_customers_dataset.csv
+   customer_id               varchar  买家编号，一单一个
+   customer_unique_id        varchar  真人编号，同一人多次下单会重复
+   customer_zip_code_prefix  varchar  邮编前缀
+   customer_city             varchar  城市
+   customer_state            varchar  州
+
+6. ods_products  商品表  32951 行
+   来源 olist_products_dataset.csv
+   注：列名 lenght 为源数据拼写错误，原样保留
+   product_id                  varchar  商品编号
+   product_category_name       varchar  品类葡语名，部分为空
+   product_name_lenght         varchar  商品名长度
+   product_description_lenght  varchar  描述长度
+   product_photos_qty          varchar  图片张数
+   product_weight_g            varchar  重量，克
+   product_length_cm           varchar  长度，厘米
+   product_height_cm           varchar  高度，厘米
+   product_width_cm            varchar  宽度，厘米
+
+7. ods_sellers  卖家表  3095 行
+   来源 olist_sellers_dataset.csv
+   seller_id               varchar  卖家编号
+   seller_zip_code_prefix  varchar  邮编前缀
+   seller_city             varchar  城市
+   seller_state            varchar  州
+
+8. ods_geolocation  地理位置表  1000163 行
+   来源 olist_geolocation_dataset.csv
+   注：一个邮编对应多个坐标点
+   geolocation_zip_code_prefix  varchar  邮编前缀
+   geolocation_lat              varchar  纬度
+   geolocation_lng              varchar  经度
+   geolocation_city             varchar  城市
+   geolocation_state            varchar  州
+
+9. ods_translation  品类翻译表  71 行
+   来源 product_category_name_translation.csv
+   product_category_name          varchar  品类葡语名
+   product_category_name_english  varchar  品类英语名
+
+
+========================================================
+DWD 层 数据仓库明细层 五张维度表 一张事实表
+类型与清洗在这一层完成，之后各层不再处理字符串
+========================================================
+
+10. dim_customers  客户维度  99441 行
+    customer_id         varchar(32)    买家编号，主键
+    customer_unique_id  varchar(32)    真人编号，复购分析用
+    zip_code_prefix     varchar(10)    邮编前缀
+    city                varchar(50)    城市，已去空格转小写
+    state               varchar(10)    州
+    lat                 decimal(10,6)  纬度，由邮编关联地区维度得到
+    lng                 decimal(10,6)  经度，同上
+
+11. dim_products  商品维度  32951 行
+    product_id    varchar(32)   商品编号，主键
+    category_pt   varchar(100)  品类葡语名
+    category_en   varchar(100)  品类英语名，译不到写 unknown
+    weight_g      int           重量，克
+    length_cm     int           长度，厘米
+    height_cm     int           高度，厘米
+    width_cm      int           宽度，厘米
+    photos_qty    int           图片张数
+
+12. dim_sellers  卖家维度  3095 行
+    seller_id        varchar(32)    卖家编号，主键
+    zip_code_prefix  varchar(10)    邮编前缀
+    city             varchar(50)    城市，已清洗
+    state            varchar(10)    州
+    lat              decimal(10,6)  纬度
+    lng              decimal(10,6)  经度
+
+13. dim_geo  地区维度  19015 行
+    注：由地理表按邮编聚合而来，一行一个邮编
+    zip_code_prefix  varchar    邮编前缀，主键
+    lat              double     该邮编所有点的平均纬度
+    lng              double     平均经度
+    city             varchar    城市，取一个代表
+    state            varchar    州，取一个代表
+
+14. dim_date  日期维度  1100 行
+    范围 2016-01-01 至 2019-01-04
+    date_key     int      日期编号，形如 20180115，主键
+    full_date    date     完整日期
+    year_num     int      年
+    month_num    int      月
+    day_num      int      日
+    weekday_num  int      星期几，1是周一
+    quarter_num  int      季度
+    is_weekend   tinyint  是否周末，1是
+
+15. fact_order_items  订单商品事实表  112650 行
+    粒度：一个订单里的一件商品
+    主键：order_id 与 order_item_id 组合
+    order_id       varchar(32)    订单编号
+    order_item_id  int            本单第几件商品
+    customer_id    varchar(32)    买家编号，指向客户维度
+    product_id     varchar(32)    商品编号，指向商品维度
+    seller_id      varchar(32)    卖家编号，指向卖家维度
+    date_key       int            下单日期编号，指向日期维度
+    order_status   varchar(20)    订单状态
+    price          decimal(10,2)  商品金额
+    freight_value  decimal(10,2)  运费
+    delivery_days  int            下单到签收天数，未签收为空
+    is_late        tinyint        是否晚于承诺日期，1晚 0未晚
+
+
+========================================================
+DWS 层 数据仓库服务层 三张主题汇总表
+按主题预聚合，供上层直接取数
+========================================================
+
+16. dws_sales_daily  销售主题  56859 行
+    粒度：天 加 品类 加 州
+    date_key     int            下单日期编号
+    year_num     int            年
+    month_num    int            月
+    category_en  varchar(100)   品类英语名
+    state        varchar(10)    买家所在州
+    order_cnt    int            订单数，按订单去重
+    item_cnt     int            商品件数
+    buyer_cnt    int            买家数，按真人去重
+    gmv          decimal(14,2)  商品金额合计
+    freight_sum  decimal(14,2)  运费合计
+
+17. dws_buyer  用户主题  95420 行
+    粒度：一人一行
+    customer_unique_id  varchar(32)    真人编号，主键
+    state               varchar(10)    所在州
+    first_date_key      int            首次下单日期
+    last_date_key       int            最后下单日期
+    order_cnt           int            下单次数
+    item_cnt            int            购买件数
+    total_gmv           decimal(14,2)  累计消费
+    is_repeat           tinyint        是否复购，1是
+
+18. dws_delivery  履约主题  10701 行
+    粒度：天 加 州
+    date_key           int            下单日期编号
+    year_num           int            年
+    month_num          int            月
+    state              varchar(10)    买家所在州
+    order_cnt          int            订单数，已按订单去重
+    avg_delivery_days  decimal(6,2)   平均配送天数
+    late_cnt           int            迟到订单数
+    late_rate          decimal(6,4)   迟到率，占已送达订单
+
+
+========================================================
+ADS 层 应用数据服务层 两张结果表
+直接供报表或面试演示使用
+========================================================
+
+19. ads_funnel  订单履约漏斗  4 行
+    step_no    int            步骤序号 1到4
+    step_name  varchar(50)    步骤名：下单 付款确认 发货 签收
+    order_cnt  int            这一步剩余订单数
+    rate       decimal(6,4)   相对第一步的留存率
+
+20. ads_repurchase  复购分析  27 行
+    state        varchar(10)   州
+    buyer_cnt    int           该州买家数
+    repeat_cnt   int           其中复购买家数
+    repeat_rate  decimal(6,4)  复购率
+
+
+========================================================
+附 关键口径说明
+========================================================
+
+客户口径：customer_id 是订单级编号，一单一个；customer_unique_id 是
+真人编号，同一人多次下单会重复。复购分析必须用后者，用前者会把每个人
+都算成新客。
+
+事实表口径：一行是一件商品，不是一单。订单数必须 count(distinct order_id)，
+件数直接 count(1)。
+
+空值口径：ODS 层空值是空字符串不是 null，因此判断缺失用等于空字符串，
+不能用 is null。DWD 层转换后才有真正的 null。
+
+金额口径：ODS 金额是字符串，DWD 层转 decimal(10,2)。全站 GMV 为
+13591643.70，运费 2251909.54。
+
+时间口径：ODS 时间是字符串，格式统一为年月日时分秒，字符串比较等价于
+时间比较，但日期运算必须先转 date。
